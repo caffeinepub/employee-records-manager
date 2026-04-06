@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit2, Eye, EyeOff, Share2, Trash2 } from "lucide-react";
+import { Edit2, Eye, EyeOff, ImageDown, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { EmployeeRecord } from "../backend.d";
 
@@ -12,6 +12,7 @@ interface EmployeeCardProps {
   onEdit: (employee: EmployeeRecord) => void;
   onDelete: (id: bigint) => void;
   onShare: (employee: EmployeeRecord) => void;
+  onShareImage: (employee: EmployeeRecord) => void;
 }
 
 const AVATAR_COLORS = [
@@ -55,6 +56,7 @@ export function EmployeeCard({
   onEdit,
   onDelete,
   onShare,
+  onShareImage,
 }: EmployeeCardProps) {
   const [showAadhaar, setShowAadhaar] = useState(false);
   const [showBank, setShowBank] = useState(false);
@@ -230,6 +232,15 @@ export function EmployeeCard({
         >
           <Trash2 className="w-3.5 h-3.5 mr-1.5" />
           Delete
+        </Button>
+        <Button
+          onClick={() => onShareImage(employee)}
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-9 text-sm font-semibold"
+          data-ocid={`employees.share_image_button.${index}`}
+          title="Share as image"
+        >
+          <ImageDown className="w-3.5 h-3.5 mr-1.5" />
+          Image
         </Button>
       </div>
     </div>

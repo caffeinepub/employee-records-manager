@@ -46,6 +46,25 @@ const NAV_ITEMS: { id: NavPage; label: string; icon: React.ReactNode }[] = [
   { id: "settings", label: "Settings", icon: <Settings className="w-5 h-5" /> },
 ];
 
+const AVATAR_COLORS = [
+  "#1E88E5",
+  "#8B5CF6",
+  "#059669",
+  "#F59E0B",
+  "#EC4899",
+  "#EF4444",
+  "#0EA5E9",
+  "#14B8A6",
+];
+
+function downloadCanvas(canvas: HTMLCanvasElement, name: string) {
+  const link = document.createElement("a");
+  link.download = `${name.replace(/\s+/g, "_")}_employee.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+  import("sonner").then(({ toast }) => toast.success("Image saved!"));
+}
+
 function DashboardPage({
   employees,
   onNavigate,
@@ -392,6 +411,163 @@ function MainApp() {
     }
   }, []);
 
+  const handleShareImage = useCallback(async (emp: EmployeeRecord) => {
+    const canvas = document.createElement("canvas");
+    const width = 800;
+    const height = 520;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d")!;
+
+    // Background gradient - deep blue to indigo
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, "#1a237e");
+    gradient.addColorStop(1, "#283593");
+    ctx.fillStyle = gradient;
+    ctx.roundRect(0, 0, width, height, 24);
+    ctx.fill();
+
+    // White card overlay
+    ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
+    ctx.roundRect(24, 24, width - 48, height - 48, 16);
+    ctx.fill();
+
+    // Top accent bar (blue gradient)
+    const accentGrad = ctx.createLinearGradient(0, 0, width, 0);
+    accentGrad.addColorStop(0, "#1E88E5");
+    accentGrad.addColorStop(1, "#42A5F5");
+    ctx.fillStyle = accentGrad;
+    ctx.roundRect(24, 24, width - 48, 6, [6, 6, 0, 0]);
+    ctx.fill();
+
+    // Avatar circle with name initials
+    const avatarX = 80;
+    const avatarY = 100;
+    const avatarR = 44;
+    let hash = 0;
+    for (let i = 0; i < emp.name.length; i++)
+      hash = emp.name.charCodeAt(i) + ((hash << 5) - hash);
+    const avatarColor = AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+
+    ctx.fillStyle = avatarColor;
+    ctx.beginPath();
+    ctx.arc(avatarX, avatarY, avatarR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Initials text
+    const initials = emp.name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 28px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(initials, avatarX, avatarY);
+
+    // Employee Name
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 32px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(emp.name, 145, 70);
+
+    // Employee ID subtitle
+    if (emp.employeeId) {
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.font = "18px sans-serif";
+      ctx.fillText(`ID: ${emp.employeeId}`, 145, 112);
+    }
+
+    // Divider line
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(48, 165);
+    ctx.lineTo(width - 48, 165);
+    ctx.stroke();
+
+    // Data fields - draw in a 2-column grid
+    const fields: { label: string; value: string }[] = [];
+    if (emp.aadhaarNumber)
+      fields.push({
+        label: "Aadhaar",
+        value: `\u25cf\u25cf\u25cf\u25cf${emp.aadhaarNumber.slice(-4)}`,
+      });
+    if (emp.uanNumber)
+      fields.push({ label: "UAN Number", value: emp.uanNumber });
+    if (emp.bankAccountNumber)
+      fields.push({
+        label: "Bank Account",
+        value: `\u25cf\u25cf\u25cf\u25cf${emp.bankAccountNumber.slice(-4)}`,
+      });
+    if (emp.ifscCode)
+      fields.push({ label: "IFSC Code", value: emp.ifscCode.toUpperCase() });
+    if (emp.mobileNumber)
+      fields.push({ label: "Mobile", value: emp.mobileNumber });
+
+    const startY = 190;
+    const colWidth = (width - 96) / 2;
+    const rowH = 70;
+
+    fields.forEach((field, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 48 + col * colWidth;
+      const y = startY + row * rowH;
+
+      // Field label
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.font = "13px sans-serif";
+      ctx.textBaseline = "top";
+      ctx.fillText(field.label.toUpperCase(), x, y);
+
+      // Field value
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 18px sans-serif";
+      ctx.fillText(field.value, x, y + 20);
+    });
+
+    // Footer: app branding
+    const footerY = height - 52;
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(0, footerY, width, 52);
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.font = "13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("EmpManager \u00b7 Employee Records", width / 2, footerY + 26);
+
+    // Convert canvas to blob and share
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File(
+        [blob],
+        `${emp.name.replace(/\s+/g, "_")}_employee.png`,
+        { type: "image/png" },
+      );
+
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            title: `${emp.name} - Employee Record`,
+            files: [file],
+          });
+        } catch {
+          downloadCanvas(canvas, emp.name);
+        }
+      } else {
+        downloadCanvas(canvas, emp.name);
+      }
+    }, "image/png");
+  }, []);
+
   const handleFormSubmit = async (
     data: Omit<EmployeeRecord, "id" | "timestamp">,
   ) => {
@@ -658,6 +834,7 @@ function MainApp() {
                           onEdit={handleEdit}
                           onDelete={handleDelete}
                           onShare={handleShare}
+                          onShareImage={handleShareImage}
                         />
                       </motion.div>
                     ))}
